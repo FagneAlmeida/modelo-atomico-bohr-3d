@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Modelo Atômico de Bohr 3D Interativo – Simulador de saltos quânticos, cálculos de Bohr e guia de construção de maquete física. Educacional e open-source.">
+    <meta name="author" content="Projeto Educacional Bohr 3D">
+    <meta name="theme-color" content="#050811">
+    <title>Modelo Atômico de Bohr 3D – Simulador Quântico Interativo</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Three.js + OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- Fontes e Ícones -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050811;
+            color: #f1f5f9;
+            overflow: hidden;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.6); }
+
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 1;
+        }
+
+        /* Modal do Manual */
+        #manual-modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #manual-modal.hidden-modal {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .formula {
+            background: #0f172a;
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            color: #a78bfa;
+            margin: 10px 0;
+            border: 1px solid #334155;
+        }
+        .dica-eng {
+            background: rgba(56, 189, 248, 0.08);
+            border-left: 4px solid #38bdf8;
+            padding: 12px 16px;
+            margin: 14px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+    </style>
+</head>
+<body class="relative min-h-screen w-screen overflow-hidden select-none">
+
+    <!-- Canvas 3D -->
+    <div id="canvas-container"></div>
+
+    <!-- Header -->
+    <header class="absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 pointer-events-none">
+        <div class="glass-panel px-5 py-3 rounded-2xl pointer-events-auto flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-atom text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wide text-white flex items-center gap-2">
+                    Modelo de Bohr
+                    <span class="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3D Interativo</span>
+                </h1>
+                <p class="text-xs text-slate-400">Níveis quantizados • Saltos quânticos • Física de Bohr</p>
+            </div>
+        </div>
+
+        <div class="glass-panel p-2 rounded-2xl pointer-events-auto flex items-center gap-2 flex-wrap">
+            <label for="element-select" class="text-xs font-medium text-slate-300 pl-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-flask text-cyan-400"></i> Elemento:
+            </label>
+            <select id="element-select" class="bg-slate-900/90 text-cyan-300 text-sm font-semibold rounded-xl px-3 py-2 border border-slate-700/80 focus:outline-none focus:border-cyan-500 cursor-pointer">
+                <option value="H">Hidrogênio (H, Z=1)</option>
+                <option value="He">Hélio (He, Z=2)</option>
+                <option value="Li">Lítio (Li, Z=3)</option>
+                <option value="C">Carbono (C, Z=6)</option>
+                <option value="Ne" selected>Neônio (Ne, Z=10)</option>
+                <option value="Na">Sódio (Na, Z=11)</option>
+                <option value="Si">Silício (Si, Z=14)</option>
+                <option value="Ar">Argônio (Ar, Z=18)</option>
+            </select>
+            <button id="btn-reset-cam" title="Resetar câmera" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+                <i class="fa-solid fa-arrows-to-eye"></i>
+            </button>
+            <button id="btn-open-manual" title="Abrir Manual de Construção" class="p-2 rounded-xl bg-amber-600/80 hover:bg-amber-500 text-white transition flex items-center gap-1.5 px-3">
+                <i class="fa-solid fa-book-open"></i>
+                <span class="text-xs font-semibold hidden sm:inline">Manual</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Painel Esquerdo: Info do Átomo + Física de Bohr -->
+    <aside class="absolute top-24 left-4 bottom-6 z-10 w-72 md:w-80 flex flex-col gap-3 pointer-events-none">
+        <!-- Parâmetros Atômicos -->
+        <div class="glass-panel p-4 rounded-2xl pointer-events-auto flex flex-col gap-3">
+            <div class="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-microscope"></i> Parâmetros Atômicos
+                </span>
+                <span id="hud-symbol" class="font-mono font-bold text-lg text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/50">Ne</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="glass-card p-2.5 rounded-xl">
+                    <span class="text-slate-400 block text-[10px] uppercase">Nome</span>
+                    <span id="hud-name" class="font-semibold text-slate-200 text-sm">Neônio</span>
+                </div>
+                <div class="glass-card p-2.5 rounded-xl">
+                    <span class="text-slate-400 block text-[10px] uppercase">Número Atômico (Z)</span>
+                    <span id="hud-z" class="font-mono font-bold text-cyan-300 text-sm">10</span>
+                </div>
+                <div class="glass-card p-2.5 rounded-xl">
+                    <span class="text-slate-400 block text-[10px] uppercase">Prótons / Nêutrons</span>
+                    <span id="hud-particles" class="font-mono text-slate-200">10 p⁺ / 10 n⁰</span>
+                </div>
+                <div class="glass-card p-2.5 rounded-xl">
+                    <span class="text-slate-400 block text-[10px] uppercase">Camadas Eletrônicas</span>
+                    <span id="hud-shells" class="font-mono text-cyan-300">K:2, L:8</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- HUD de Física de Bohr -->
+        <div class="glass-panel p-4 rounded-2xl pointer-events-auto flex-1 flex flex-col gap-3 overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-calculator"></i> Física de Bohr
+                </span>
+                <div class="flex items-center gap-1 text-xs">
+                    <label for="select-shell" class="text-slate-400">n =</label>
+                    <select id="select-shell" class="bg-slate-900 text-cyan-300 font-mono font-bold rounded px-2 py-0.5 border border-slate-700">
+                        <option value="1">1 (K)</option>
+                        <option value="2" selected>2 (L)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2.5 font-mono text-xs">
+                <div class="glass-card p-3 rounded-xl flex justify-between items-center">
+                    <div>
+                        <span class="text-slate-400 block text-[10px] font-sans">Raio da Órbita (rₙ)</span>
+                        <span id="calc-radius" class="text-cyan-300 font-bold text-sm">0.212 Å</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-sans">a₀·n²/Z</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl flex justify-between items-center">
+                    <div>
+                        <span class="text-slate-400 block text-[10px] font-sans">Nível de Energia (Eₙ)</span>
+                        <span id="calc-energy" class="text-emerald-400 font-bold text-sm">-340.15 eV</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-sans">-13.6·Z²/n²</span>
+                </div>
+                <div class="glass-card p-3 rounded-xl flex justify-between items-center">
+                    <div>
+                        <span class="text-slate-400 block text-[10px] font-sans">Velocidade (vₙ)</span>
+                        <span id="calc-velocity" class="text-amber-300 font-bold text-sm">1.093 × 10⁶ m/s</span>
+                    </div>
+                    <span id="calc-c-ratio" class="text-[10px] text-amber-500/80 font-sans">0.36% c</span>
+                </div>
+            </div>
+
+            <div class="mt-auto glass-card p-3 rounded-xl border-l-2 border-cyan-500 text-[11px] leading-relaxed text-slate-300 font-sans">
+                <strong class="text-cyan-400 font-semibold block mb-1">2º Postulado de Bohr:</strong>
+                Momento angular quantizado:
+                <div class="font-mono text-center my-1.5 text-cyan-300 bg-slate-950/50 py-1.5 rounded">
+                    L = mₑ · v · r = n · ℏ
+                </div>
+                Os elétrons só ocupam órbitas estáveis (não irradiam) enquanto não saltam entre níveis de energia.
+            </div>
+        </div>
+    </aside>
+
+    <!-- Painel Direito: Controles + Salto Quântico -->
+    <aside class="absolute top-24 right-4 z-10 w-72 md:w-80 flex flex-col gap-3 pointer-events-none">
+        <!-- Controles Visuais -->
+        <div class="glass-panel p-4 rounded-2xl pointer-events-auto flex flex-col gap-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-cyan-400 border-b border-slate-700/50 pb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-sliders"></i> Controles Visuais
+            </span>
+
+            <div class="flex items-center gap-3">
+                <button id="btn-play-pause" class="flex-1 py-2 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition shadow-lg shadow-cyan-600/30">
+                    <i class="fa-solid fa-pause" id="icon-play-pause"></i>
+                    <span id="text-play-pause">Pausar Movimento</span>
+                </button>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <div class="flex justify-between text-xs text-slate-300">
+                    <span>Velocidade da Simulação</span>
+                    <span id="speed-val" class="font-mono text-cyan-400">1.0×</span>
+                </div>
+                <input type="range" id="slider-speed" min="0.1" max="3" step="0.1" value="1.0"
+                       class="w-full accent-cyan-400 bg-slate-800 rounded-lg cursor-pointer h-1.5">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+                <label class="glass-card p-2 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-800/50">
+                    <span class="text-slate-300 text-[11px]">Anéis de Órbita</span>
+                    <input type="checkbox" id="chk-orbits" checked class="accent-cyan-400">
+                </label>
+                <label class="glass-card p-2 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-800/50">
+                    <span class="text-slate-300 text-[11px]">Inclinação 3D</span>
+                    <input type="checkbox" id="chk-tilt" class="accent-cyan-400">
+                </label>
+                <label class="glass-card p-2 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-800/50 col-span-2">
+                    <span class="text-slate-300 text-[11px]">Brilho do Núcleo</span>
+                    <input type="checkbox" id="chk-glow" checked class="accent-cyan-400">
+                </label>
+            </div>
+        </div>
+
+        <!-- Simulador de Salto Quântico -->
+        <div class="glass-panel p-4 rounded-2xl pointer-events-auto flex flex-col gap-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-purple-400 border-b border-slate-700/50 pb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt-lightning text-yellow-400"></i> Simulador de Salto Quântico
+            </span>
+
+            <p class="text-[11px] text-slate-300 leading-tight">
+                Simule um elétron saltando de um nível de energia <strong>nᵢ</strong> para <strong>nₑ</strong> e observe a emissão de um fóton.
+            </p>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Nível Inicial (nᵢ)</label>
+                    <select id="jump-ni" class="w-full bg-slate-900 text-purple-300 font-mono rounded-lg p-2 border border-slate-700 focus:border-purple-500">
+                        <option value="2">n = 2</option>
+                        <option value="3" selected>n = 3</option>
+                        <option value="4">n = 4</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Nível Final (nₑ)</label>
+                    <select id="jump-nf" class="w-full bg-slate-900 text-cyan-300 font-mono rounded-lg p-2 border border-slate-700 focus:border-cyan-500">
+                        <option value="1">n = 1</option>
+                        <option value="2" selected>n = 2</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="btn-trigger-jump" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-lg shadow-purple-600/30">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Disparar Salto Quântico
+            </button>
+        </div>
+    </aside>
+
+    <!-- Modal de Fóton Emitido -->
+    <div id="quantum-modal" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto transition-all duration-500 transform translate-y-32 opacity-0">
+        <div class="glass-panel px-6 py-4 rounded-2xl border border-purple-500/40 shadow-2xl flex items-center gap-5 max-w-lg">
+            <div id="modal-photon-color" class="w-12 h-12 rounded-2xl flex items-center justify-center text-slate-900 font-bold text-xl shadow-lg shrink-0 transition-colors">
+                <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <div class="flex-1 text-xs">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-bold text-sm text-purple-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-atom"></i> Fóton Emitido!
+                    </span>
+                    <span id="modal-series" class="font-mono text-[10px] px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800">
+                        Série de Balmer
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 font-mono text-slate-200 mt-1">
+                    <div>Energia ΔE: <span id="modal-delta-e" class="text-emerald-400 font-bold">1.89 eV</span></div>
+                    <div>Comprimento λ: <span id="modal-lambda" class="text-cyan-300 font-bold">656.3 nm</span></div>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-1">
+                    Região espectral: <span id="modal-spectrum" class="text-slate-200 font-semibold">Luz Visível (Vermelho)</span>
+                </div>
+            </div>
+            <button id="modal-close" class="text-slate-400 hover:text-white p-1">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal do Manual de Construção -->
+    <div id="manual-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 hidden-modal">
+        <div class="glass-panel max-w-3xl w-full max-h-[90vh] overflow-y-auto rounded-2xl p-6 md:p-8 relative">
+            <button id="btn-close-manual" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+            <h1 class="text-2xl font-bold text-cyan-400 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-book-open"></i> Manual da Maquete Digital e Guia de Construção Física
+            </h1>
+            <p class="text-slate-300 text-sm mb-6">
+                Use o modelo 3D (arraste para girar, role para zoom) como planta baixa da sua maquete física. Abaixo estão a matemática e os materiais recomendados.
+            </p>
+
+            <h2 class="text-lg font-semibold text-amber-300 border-b border-slate-700 pb-1 mb-3">1. O Núcleo (Prótons e Nêutrons)</h2>
+            <p class="text-sm text-slate-300 mb-2">
+                No modelo de Bohr o núcleo é denso, pequeno e carregado positivamente. No software os <strong class="text-red-400">prótons são vermelhos</strong> e os <strong class="text-slate-400">nêutrons são cinzentos</strong>, agrupados numa esfera central.
+            </p>
+            <div class="dica-eng">
+                <strong class="text-cyan-300">Dica de Construção (Maquete):</strong> Use bolinhas de isopor ou massa de modelar pequenas (≈ 1–2 cm). Pinte de duas cores diferentes. Cole formando um “cacho” esférico firme. Para estrutura, fixe o núcleo numa haste central de acrílico ou espeto de madeira pintado de preto.
+            </div>
+
+            <h2 class="text-lg font-semibold text-amber-300 border-b border-slate-700 pb-1 mb-3 mt-6">2. Níveis de Energia (As Órbitas)</h2>
+            <p class="text-sm text-slate-300 mb-2">
+                A grande inovação de Bohr foi propor que os elétrons só podem existir em órbitas quantizadas. O raio da órbita (rₙ) cresce com o quadrado do número quântico principal (n):
+            </p>
+            <div class="formula">rₙ = n² × r₁</div>
+            <ul class="text-sm text-slate-300 list-disc list-inside mb-2 space-y-1">
+                <li><strong>n = 1 (Camada K):</strong> Raio R</li>
+                <li><strong>n = 2 (Camada L):</strong> Raio 4R</li>
+                <li><strong>n = 3 (Camada M):</strong> Raio 9R</li>
+            </ul>
+            <div class="dica-eng">
+                <strong class="text-cyan-300">Dica de Construção (Maquete):</strong> Use arame galvanizado rígido, argolas de metal ou bastidores de bordado. Para manter o rigor de engenharia, <strong>meça os diâmetros</strong>! Se o 1º anel tiver 10 cm de diâmetro, o 2º <strong>DEVE</strong> ter 40 cm e o 3º 90 cm. Suspenda os anéis com fio de nylon transparente (fio de pesca) amarrado à haste central.
+            </div>
+
+            <h2 class="text-lg font-semibold text-amber-300 border-b border-slate-700 pb-1 mb-3 mt-6">3. Os Elétrons e a Velocidade</h2>
+            <p class="text-sm text-slate-300 mb-2">
+                Os elétrons orbitam nas trajetórias. No software as esferas azuis são os elétrons. Pela mecânica clássica + postulados de Bohr, a velocidade diminui em órbitas mais afastadas (vₙ ∝ 1/n). Observe que o elétron em n=1 gira muito mais rápido que o de n=2.
+            </p>
+            <div class="dica-eng">
+                <strong class="text-cyan-300">Dica de Construção (Maquete):</strong> Use miçangas azuis ou bolinhas de plástico com furo. Passe o arame da órbita por dentro delas antes de fechar o círculo. Assim os elétrons podem ser movidos fisicamente na maquete!
+            </div>
+
+            <h2 class="text-lg font-semibold text-amber-300 border-b border-slate-700 pb-1 mb-3 mt-6">4. Intuição de Engenharia / Escala</h2>
+            <p class="text-sm text-slate-300 mb-4">
+                Na realidade a distância do núcleo ao primeiro elétron é brutal. Uma maquete em escala real desmoronaria pela gravidade. Por isso, tanto neste visualizador 3D quanto em modelagem CAD, aplicamos um <strong>fator de escala de visualização</strong>: o núcleo é deliberadamente aumentado para ficar visível junto com as órbitas. Os cálculos de física no painel esquerdo usam as fórmulas reais de Bohr.
+            </p>
+
+            <div class="bg-slate-900/60 border border-slate-700 rounded-xl p-4 text-xs text-slate-400">
+                <strong class="text-slate-300">Nota científica:</strong> O modelo de Bohr é exato apenas para átomos hidrogenoides (um elétron). Para átomos com vários elétrons usamos a aproximação hidrogenoide (substituindo Z efetivo). Serve perfeitamente para ensino de quantização, níveis de energia e espectro de emissão.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ============================================================
+           MODELO ATÔMICO DE BOHR 3D – VERSÃO UNIFICADA E CORRIGIDA
+           ============================================================
+           Melhorias em relação aos dois originais:
+           • UI e textos 100 % em português
+           • Manual de construção física integrado (do 1º ficheiro)
+           • Removido checkbox “Particle Trails” (código morto / feature incompleta)
+           • Mais elementos, saltos quânticos, cálculos reais de Bohr
+           • Visual radii estéticos + física correta no HUD
+           • Pronto para GitHub Pages / Netlify (um único HTML)
+           ============================================================ */
+
+        const ELEMENTS = {
+            'H':  { name: 'Hidrogênio', z: 1,  neutrons: 0,  shells: [1] },
+            'He': { name: 'Hélio',      z: 2,  neutrons: 2,  shells: [2] },
+            'Li': { name: 'Lítio',      z: 3,  neutrons: 4,  shells: [2, 1] },
+            'C':  { name: 'Carbono',    z: 6,  neutrons: 6,  shells: [2, 4] },
+            'Ne': { name: 'Neônio',     z: 10, neutrons: 10, shells: [2, 8] },
+            'Na': { name: 'Sódio',      z: 11, neutrons: 12, shells: [2, 8, 1] },
+            'Si': { name: 'Silício',    z: 14, neutrons: 14, shells: [2, 8, 4] },
+            'Ar': { name: 'Argônio',    z: 18, neutrons: 22, shells: [2, 8, 8] }
+        };
+
+        // Constantes físicas
+        const BOHR_RADIUS_A0 = 0.529177;   // Å
+        const RYDBERG_EV     = 13.60569;   // eV
+        const SPEED_OF_LIGHT = 299792458;  // m/s
+        const ELECTRON_V0    = 2187691;    // m/s (H, n=1)
+        const PLANCK_HC_EV_NM = 1239.84;   // eV·nm
+
+        let currentElementKey = 'Ne';
+        let isPlaying = true;
+        let simSpeed = 1.0;
+        let showOrbits = true;
+        let enable3DTilt = false;
+        let showGlow = true;
+        let selectedShell = 2;
+
+        let scene, camera, renderer, controls;
+        let atomGroup, nucleusGroup, orbitsGroup, electronsGroup, effectsGroup;
+        let electronMeshes = [];
+        let orbitRingMeshes = [];
+        let activeTransition = null;
+
+        // Escala visual (estética) – não é n² real para o desenho
+        function getVisualRadius(n) {
+            return 3.5 + (n * 2.8);
+        }
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050811, 0.015);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 12, 28);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 80;
+            controls.minDistance = 5;
+
+            // Iluminação
+            scene.add(new THREE.AmbientLight(0x334155, 1.5));
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            sunLight.position.set(15, 25, 20);
+            scene.add(sunLight);
+            const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.6);
+            fillLight.position.set(-15, -10, -15);
+            scene.add(fillLight);
+
+            atomGroup = new THREE.Group();
+            nucleusGroup = new THREE.Group();
+            orbitsGroup = new THREE.Group();
+            electronsGroup = new THREE.Group();
+            effectsGroup = new THREE.Group();
+
+            atomGroup.add(nucleusGroup);
+            atomGroup.add(orbitsGroup);
+            atomGroup.add(electronsGroup);
+            atomGroup.add(effectsGroup);
+            scene.add(atomGroup);
+
+            createSpaceDust();
+            buildAtom(currentElementKey);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createSpaceDust() {
+            const particleCount = 400;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i]     = (Math.random() - 0.5) * 120;
+                positions[i + 1] = (Math.random() - 0.5) * 120;
+                positions[i + 2] = (Math.random() - 0.5) * 120;
+            }
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({
+                color: 0x38bdf8, size: 0.3, transparent: true, opacity: 0.3
+            });
+            scene.add(new THREE.Points(geometry, material));
+        }
+
+        function buildNucleus(protons, neutrons) {
+            while (nucleusGroup.children.length) nucleusGroup.remove(nucleusGroup.children[0]);
+
+            const totalParticles = protons + neutrons;
+            const particleRadius = 0.42;
+
+            const protonMat = new THREE.MeshStandardMaterial({
+                color: 0xef4444, emissive: 0x991b1b, emissiveIntensity: 0.5,
+                roughness: 0.2, metalness: 0.5
+            });
+            const neutronMat = new THREE.MeshStandardMaterial({
+                color: 0x64748b, emissive: 0x1e293b, emissiveIntensity: 0.2,
+                roughness: 0.4, metalness: 0.3
+            });
+            const geo = new THREE.SphereGeometry(particleRadius, 24, 24);
+
+            let pCount = 0, nCount = 0;
+            for (let i = 0; i < totalParticles; i++) {
+                const isProton = (pCount < protons && (nCount >= neutrons || Math.random() < 0.5));
+                if (isProton) pCount++; else nCount++;
+
+                const mesh = new THREE.Mesh(geo, isProton ? protonMat : neutronMat);
+                const phi = Math.acos(-1 + (2 * i + 1) / totalParticles);
+                const theta = Math.sqrt(totalParticles * Math.PI) * phi;
+                const r = totalParticles === 1 ? 0 : Math.pow(i / totalParticles, 0.5) * (Math.pow(totalParticles, 0.33) * 0.55);
+
+                mesh.position.set(
+                    r * Math.cos(theta) * Math.sin(phi),
+                    r * Math.sin(theta) * Math.sin(phi),
+                    r * Math.cos(phi)
+                );
+                nucleusGroup.add(mesh);
+            }
+
+            if (showGlow) {
+                const nLight = new THREE.PointLight(0xf87171, 2, 12);
+                nucleusGroup.add(nLight);
+                const glowGeo = new THREE.SphereGeometry(Math.max(1.0, Math.pow(totalParticles, 0.33) * 0.7), 24, 24);
+                const glowMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.15 });
+                nucleusGroup.add(new THREE.Mesh(glowGeo, glowMat));
+            }
+        }
+
+        function buildAtom(elemKey) {
+            const data = ELEMENTS[elemKey];
+            currentElementKey = elemKey;
+
+            electronMeshes = [];
+            orbitRingMeshes = [];
+            while (orbitsGroup.children.length) orbitsGroup.remove(orbitsGroup.children[0]);
+            while (electronsGroup.children.length) electronsGroup.remove(electronsGroup.children[0]);
+
+            buildNucleus(data.z, data.neutrons);
+
+            data.shells.forEach((count, shellIdx) => {
+                const n = shellIdx + 1;
+                const visRadius = getVisualRadius(n);
+
+                // Anel da órbita
+                const ringGeo = new THREE.RingGeometry(visRadius - 0.04, visRadius + 0.04, 128);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: 0x38bdf8, side: THREE.DoubleSide,
+                    transparent: true, opacity: showOrbits ? 0.35 : 0.0
+                });
+                const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+                ringMesh.rotation.x = Math.PI / 2;
+
+                const tiltX = enable3DTilt ? (shellIdx * 0.25 - 0.2) : 0;
+                const tiltZ = enable3DTilt ? (shellIdx * 0.18) : 0;
+                ringMesh.rotation.x += tiltX;
+                ringMesh.rotation.z += tiltZ;
+                ringMesh.userData = { n, visRadius, tiltX, tiltZ };
+                orbitsGroup.add(ringMesh);
+                orbitRingMeshes.push(ringMesh);
+
+                // Elétrons
+                const electronGeo = new THREE.SphereGeometry(0.24, 24, 24);
+                const electronMat = new THREE.MeshStandardMaterial({
+                    color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.9, roughness: 0.1
+                });
+
+                for (let e = 0; e < count; e++) {
+                    const electronMesh = new THREE.Mesh(electronGeo, electronMat.clone());
+                    const eLight = new THREE.PointLight(0x38bdf8, 0.8, 3);
+                    electronMesh.add(eLight);
+
+                    const angle = (e / count) * Math.PI * 2 + (shellIdx * 0.5);
+                    const baseSpeed = (data.z / n) * 0.012;
+
+                    electronMesh.userData = {
+                        n, shellIdx, angle, speed: baseSpeed,
+                        visRadius, tiltX, tiltZ
+                    };
+                    updateElectronPosition(electronMesh);
+                    electronsGroup.add(electronMesh);
+                    electronMeshes.push(electronMesh);
+                }
+            });
+
+            updateShellDropdownOptions(data.shells.length);
+            updateHUDData();
+        }
+
+        function updateElectronPosition(eMesh) {
+            const r = eMesh.userData.visRadius;
+            const a = eMesh.userData.angle;
+            let x = r * Math.cos(a);
+            let y = 0;
+            let z = r * Math.sin(a);
+
+            const tX = eMesh.userData.tiltX;
+            const tZ = eMesh.userData.tiltZ;
+
+            if (tX !== 0) {
+                const y1 = y * Math.cos(tX) - z * Math.sin(tX);
+                const z1 = y * Math.sin(tX) + z * Math.cos(tX);
+                y = y1; z = z1;
+            }
+            if (tZ !== 0) {
+                const x1 = x * Math.cos(tZ) - y * Math.sin(tZ);
+                const y1 = x * Math.sin(tZ) + y * Math.cos(tZ);
+                x = x1; y = y1;
+            }
+            eMesh.position.set(x, y, z);
+        }
+
+        function triggerQuantumJump(nInitial, nFinal) {
+            if (nInitial <= nFinal) {
+                showToast("O nível inicial (nᵢ) deve ser maior que o final (nₑ) para emissão!");
+                return;
+            }
+
+            const data = ELEMENTS[currentElementKey];
+            const candidates = electronMeshes.filter(e => e.userData.n === nInitial);
+            if (candidates.length === 0) {
+                showToast(`Não há elétrons no nível n = ${nInitial} para ${data.name}!`);
+                return;
+            }
+
+            const targetElectron = candidates[Math.floor(Math.random() * candidates.length)];
+            const targetVisRadius = getVisualRadius(nFinal);
+
+            const Z = data.z;
+            const Ei = -RYDBERG_EV * (Z * Z) / (nInitial * nInitial);
+            const Ef = -RYDBERG_EV * (Z * Z) / (nFinal * nFinal);
+            const deltaE = Math.abs(Ef - Ei);
+            const lambda = PLANCK_HC_EV_NM / deltaE;
+
+            const photonInfo = getPhotonColorAndSpectrum(lambda, nFinal);
+
+            activeTransition = {
+                electron: targetElectron,
+                startRadius: targetElectron.userData.visRadius,
+                targetRadius: targetVisRadius,
+                startN: nInitial,
+                targetN: nFinal,
+                progress: 0,
+                duration: 1.2,
+                photonInfo,
+                deltaE,
+                lambda
+            };
+
+            targetElectron.material.color.setHex(0xf43f5e);
+            targetElectron.material.emissive.setHex(0xe11d48);
+        }
+
+        function getPhotonColorAndSpectrum(lambda, targetN) {
+            let colorHex, name, series;
+
+            if (targetN === 1) series = "Série de Lyman (UV)";
+            else if (targetN === 2) series = "Série de Balmer (Visível)";
+            else if (targetN === 3) series = "Série de Paschen (IV)";
+            else series = "Emissão Quântica";
+
+            if (lambda < 380) {
+                colorHex = 0xa855f7; name = "Ultravioleta (UV)";
+            } else if (lambda < 450) {
+                colorHex = 0x6366f1; name = "Luz Violeta";
+            } else if (lambda < 495) {
+                colorHex = 0x06b6d4; name = "Luz Ciano / Azul";
+            } else if (lambda < 570) {
+                colorHex = 0x10b981; name = "Luz Verde";
+            } else if (lambda < 590) {
+                colorHex = 0xeab308; name = "Luz Amarela";
+            } else if (lambda < 620) {
+                colorHex = 0xf97316; name = "Luz Laranja";
+            } else if (lambda < 750) {
+                colorHex = 0xef4444; name = "Luz Vermelha";
+            } else {
+                colorHex = 0x9f1239; name = "Infravermelho (IV)";
+            }
+
+            return { hex: colorHex, name, series };
+        }
+
+        function emitPhotonBurst(position, photonInfo) {
+            const ringGeo = new THREE.RingGeometry(0.2, 0.5, 64);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: photonInfo.hex, side: THREE.DoubleSide,
+                transparent: true, opacity: 0.9
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.copy(position);
+            ring.lookAt(camera.position);
+            effectsGroup.add(ring);
+
+            const pLight = new THREE.PointLight(photonInfo.hex, 4, 15);
+            pLight.position.copy(position);
+            effectsGroup.add(pLight);
+
+            let scale = 1, opacity = 0.9;
+            const animateEffect = () => {
+                scale += 0.4;
+                opacity -= 0.03;
+                ring.scale.set(scale, scale, scale);
+                ringMat.opacity = Math.max(0, opacity);
+                pLight.intensity = opacity * 4;
+                if (opacity > 0) requestAnimationFrame(animateEffect);
+                else {
+                    effectsGroup.remove(ring);
+                    effectsGroup.remove(pLight);
+                    ringGeo.dispose();
+                    ringMat.dispose();
+                }
+            };
+            animateEffect();
+        }
+
+        function updateHUDData() {
+            const data = ELEMENTS[currentElementKey];
+            const Z = data.z;
+
+            document.getElementById('hud-symbol').textContent = currentElementKey;
+            document.getElementById('hud-name').textContent = data.name;
+            document.getElementById('hud-z').textContent = Z;
+            document.getElementById('hud-particles').textContent = `${Z} p⁺ / ${data.neutrons} n⁰`;
+
+            const shellString = data.shells.map((c, idx) => `${String.fromCharCode(75 + idx)}:${c}`).join(', ');
+            document.getElementById('hud-shells').textContent = shellString;
+
+            const n = parseInt(selectedShell);
+            const r_n = (BOHR_RADIUS_A0 * n * n) / Z;
+            document.getElementById('calc-radius').textContent = `${r_n.toFixed(3)} Å`;
+
+            const E_n = -RYDBERG_EV * (Z * Z) / (n * n);
+            document.getElementById('calc-energy').textContent = `${E_n.toFixed(2)} eV`;
+
+            const v_n = (Z / n) * ELECTRON_V0;
+            const cRatio = (v_n / SPEED_OF_LIGHT) * 100;
+            document.getElementById('calc-velocity').textContent = `${(v_n / 1e6).toFixed(3)} × 10⁶ m/s`;
+            document.getElementById('calc-c-ratio').textContent = `${cRatio.toFixed(2)}% c`;
+        }
+
+        function updateShellDropdownOptions(maxShells) {
+            const select = document.getElementById('select-shell');
+            select.innerHTML = '';
+            for (let i = 1; i <= maxShells; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${i} (${String.fromCharCode(74 + i)})`;
+                if (i === selectedShell || (i === maxShells && selectedShell > maxShells)) {
+                    opt.selected = true;
+                    selectedShell = i;
+                }
+                select.appendChild(opt);
+            }
+        }
+
+        function showQuantumModal(transition) {
+            const modal = document.getElementById('quantum-modal');
+            const info = transition.photonInfo;
+
+            document.getElementById('modal-photon-color').style.backgroundColor =
+                `#${info.hex.toString(16).padStart(6, '0')}`;
+            document.getElementById('modal-series').textContent = info.series;
+            document.getElementById('modal-delta-e').textContent = `${transition.deltaE.toFixed(2)} eV`;
+            document.getElementById('modal-lambda').textContent = `${transition.lambda.toFixed(1)} nm`;
+            document.getElementById('modal-spectrum').textContent = info.name;
+
+            modal.classList.remove('translate-y-32', 'opacity-0');
+            modal.classList.add('translate-y-0', 'opacity-100');
+        }
+
+        function hideQuantumModal() {
+            const modal = document.getElementById('quantum-modal');
+            modal.classList.add('translate-y-32', 'opacity-0');
+            modal.classList.remove('translate-y-0', 'opacity-100');
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-50 glass-panel px-4 py-2 rounded-xl text-xs text-amber-300 border border-amber-500/40 shadow-xl transition-all duration-300';
+            toast.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1.5"></i> ${msg}`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            if (isPlaying) {
+                electronMeshes.forEach(eMesh => {
+                    if (activeTransition && activeTransition.electron === eMesh) return;
+                    eMesh.userData.angle += eMesh.userData.speed * simSpeed * 60 * delta;
+                    updateElectronPosition(eMesh);
+                });
+
+                if (activeTransition) {
+                    activeTransition.progress += (delta / activeTransition.duration) * simSpeed;
+                    const p = Math.min(1.0, activeTransition.progress);
+                    const eMesh = activeTransition.electron;
+                    const currentR = THREE.MathUtils.lerp(
+                        activeTransition.startRadius,
+                        activeTransition.targetRadius,
+                        p
+                    );
+                    eMesh.userData.visRadius = currentR;
+                    eMesh.userData.angle += eMesh.userData.speed * simSpeed * 60 * delta;
+                    updateElectronPosition(eMesh);
+
+                    if (p >= 1.0) {
+                        eMesh.userData.n = activeTransition.targetN;
+                        eMesh.material.color.setHex(0x38bdf8);
+                        eMesh.material.emissive.setHex(0x0284c7);
+                        emitPhotonBurst(eMesh.position, activeTransition.photonInfo);
+                        showQuantumModal(activeTransition);
+                        activeTransition = null;
+                    }
+                }
+
+                if (nucleusGroup) {
+                    nucleusGroup.rotation.y += 0.003;
+                    nucleusGroup.rotation.x += 0.001;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function setupEventListeners() {
+            document.getElementById('element-select').addEventListener('change', (e) => {
+                buildAtom(e.target.value);
+            });
+
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                controls.reset();
+                camera.position.set(0, 12, 28);
+            });
+
+            const playBtn = document.getElementById('btn-play-pause');
+            playBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                document.getElementById('icon-play-pause').className = isPlaying ? "fa-solid fa-pause" : "fa-solid fa-play";
+                document.getElementById('text-play-pause').textContent = isPlaying ? "Pausar Movimento" : "Retomar Movimento";
+            });
+
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                simSpeed = parseFloat(e.target.value);
+                document.getElementById('speed-val').textContent = `${simSpeed.toFixed(1)}×`;
+            });
+
+            document.getElementById('chk-orbits').addEventListener('change', (e) => {
+                showOrbits = e.target.checked;
+                orbitRingMeshes.forEach(m => m.material.opacity = showOrbits ? 0.35 : 0.0);
+            });
+
+            document.getElementById('chk-tilt').addEventListener('change', (e) => {
+                enable3DTilt = e.target.checked;
+                buildAtom(currentElementKey);
+            });
+
+            document.getElementById('chk-glow').addEventListener('change', (e) => {
+                showGlow = e.target.checked;
+                buildNucleus(ELEMENTS[currentElementKey].z, ELEMENTS[currentElementKey].neutrons);
+            });
+
+            document.getElementById('select-shell').addEventListener('change', (e) => {
+                selectedShell = parseInt(e.target.value);
+                updateHUDData();
+            });
+
+            document.getElementById('btn-trigger-jump').addEventListener('click', () => {
+                const ni = parseInt(document.getElementById('jump-ni').value);
+                const nf = parseInt(document.getElementById('jump-nf').value);
+                triggerQuantumJump(ni, nf);
+            });
+
+            document.getElementById('modal-close').addEventListener('click', hideQuantumModal);
+
+            // Manual
+            document.getElementById('btn-open-manual').addEventListener('click', () => {
+                document.getElementById('manual-modal').classList.remove('hidden-modal');
+            });
+            document.getElementById('btn-close-manual').addEventListener('click', () => {
+                document.getElementById('manual-modal').classList.add('hidden-modal');
+            });
+            document.getElementById('manual-modal').addEventListener('click', (e) => {
+                if (e.target.id === 'manual-modal') {
+                    document.getElementById('manual-modal').classList.add('hidden-modal');
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = function () {
+            initScene();
+            setupEventListeners();
+            animate();
+        };
+    </script>
+</body>
+</html>
